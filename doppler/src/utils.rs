@@ -1,8 +1,10 @@
+#[cfg(not(feature = "std"))]
 #[allow(dead_code)]
 extern "C" {
     pub fn sol_panic_(filename: *const u8, filename_len: u64, line: u64, column: u64) -> !;
 }
 
+#[cfg(not(feature = "std"))]
 #[macro_export]
 macro_rules! nostd_panic_handler {
     () => {
@@ -13,7 +15,7 @@ macro_rules! nostd_panic_handler {
         pub fn panic_handler(info: &core::panic::PanicInfo<'_>) -> ! {
             if let Some(location) = info.location() {
                 unsafe {
-                    $crate::panic_handler::sol_panic_(
+                    $crate::utils::sol_panic_(
                         location.file().as_ptr(),
                         location.file().len() as u64,
                         location.line() as u64,
@@ -31,4 +33,9 @@ macro_rules! nostd_panic_handler {
             extern crate std as __std;
         }
     };
+}
+
+#[allow(dead_code)]
+extern "C" {
+    pub fn sol_memcpy_(dst: *mut u8, src: *const u8, n: u64);
 }

@@ -1,5 +1,5 @@
 use doppler::prelude::*;
-use doppler_program::PriceFeed;
+// use doppler_program::PriceFeed;
 use doppler_sdk::{Oracle, UpdateInstruction};
 use mollusk_svm::result::Check;
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
@@ -46,17 +46,91 @@ pub fn keyed_account_for_oracle<T: Sized + Copy>(
     (key, account)
 }
 
+// #[test]
+// fn test_oracle_update() {
+//     // Create Mollusk instance
+//     let mut mollusk = Mollusk::new(&doppler_sdk::ID, "../target/deploy/doppler_program");
+//     // Accounts
+//     let (admin, admin_account) = keyed_account_for_admin(ADMIN.into());
+//     let (oracle, oracle_account) = keyed_account_for_oracle::<PriceFeed>(
+//         &mut mollusk,
+//         ADMIN.into(),
+//         "SOL/USDC",
+//         PriceFeed { price: 100_000 },
+//     );
+//     let (system, system_account) = keyed_account_for_system_program();
+
+//     // Create oracle account
+//     let create_price_feed_instruction =
+//         solana_system_interface::instruction::create_account_with_seed(
+//             &admin,
+//             &oracle,
+//             &admin,
+//             "SOL/USDC",
+//             oracle_account.lamports,
+//             oracle_account.data.len() as u64,
+//             &doppler_sdk::ID,
+//         );
+
+//     // Update oracle with new values
+//     let oracle_update = Oracle::<PriceFeed> {
+//         sequence: 1, // Increment sequence from 0 to 1
+//         payload: PriceFeed { price: 1_100_000 },
+//     };
+
+//     let price_feed_update_instruction: Instruction = UpdateInstruction {
+//         admin,
+//         oracle_pubkey: oracle,
+//         oracle: oracle_update,
+//     }
+//     .into();
+
+//     // Execute instruction
+//     let result = mollusk.process_and_validate_instruction_chain(
+//         &[
+//             (&create_price_feed_instruction, &[Check::success()]),
+//             (&price_feed_update_instruction, &[Check::success()]),
+//         ],
+//         &vec![
+//             (admin, admin_account),
+//             (oracle, Account::default()),
+//             (system, system_account),
+//         ],
+//     );
+
+//     // Get updated oracle account
+//     let updated_oracle = result.get_account(&oracle).expect("Missing oracle account");
+
+//     let oracle = Oracle::<PriceFeed>::from_bytes(updated_oracle.data());
+//     // Verify the oracle was updated
+//     assert_eq!(&oracle.sequence, &1u64, "Sequence should be updated");
+//     assert_eq!(&oracle.payload.price, &1_100_000, "Price should be updated");
+// }
+
+#[derive(Clone, Copy)]
+struct PriceFeedBig {
+    price: u64,
+    timestamp: u64,
+    authority: [u8; 32],
+    data: [u8; 1024],
+}
+
 #[test]
-fn test_oracle_update() {
+fn test_oracle_update_for_huge_payload() {
     // Create Mollusk instance
     let mut mollusk = Mollusk::new(&doppler_sdk::ID, "../target/deploy/doppler_program");
     // Accounts
     let (admin, admin_account) = keyed_account_for_admin(ADMIN.into());
-    let (oracle, oracle_account) = keyed_account_for_oracle::<PriceFeed>(
+    let (oracle, oracle_account) = keyed_account_for_oracle::<PriceFeedBig>(
         &mut mollusk,
         ADMIN.into(),
         "SOL/USDC",
-        PriceFeed { price: 100_000 },
+        PriceFeedBig {
+            price: 100_000,
+            timestamp: 123456,
+            authority: Pubkey::new_unique().to_bytes(),
+            data: [100; 1024],
+        },
     );
     let (system, system_account) = keyed_account_for_system_program();
 
@@ -73,9 +147,14 @@ fn test_oracle_update() {
         );
 
     // Update oracle with new values
-    let oracle_update = Oracle::<PriceFeed> {
+    let oracle_update = Oracle::<PriceFeedBig> {
         sequence: 1, // Increment sequence from 0 to 1
-        payload: PriceFeed { price: 1_100_000 },
+        payload: PriceFeedBig {
+            price: 200_000,
+            timestamp: 123490,
+            authority: Pubkey::new_unique().to_bytes(),
+            data: [10; 1024],
+        },
     };
 
     let price_feed_update_instruction: Instruction = UpdateInstruction {
@@ -101,8 +180,12 @@ fn test_oracle_update() {
     // Get updated oracle account
     let updated_oracle = result.get_account(&oracle).expect("Missing oracle account");
 
-    let oracle = Oracle::<PriceFeed>::from_bytes(updated_oracle.data());
+    let oracle = Oracle::<PriceFeedBig>::from_bytes(updated_oracle.data());
     // Verify the oracle was updated
     assert_eq!(&oracle.sequence, &1u64, "Sequence should be updated");
-    assert_eq!(&oracle.payload.price, &1_100_000, "Price should be updated");
+    assert_eq!(&oracle.payload.price, &200_000, "Price should be updated");
+    assert_eq!(
+        &oracle.payload.timestamp, &123490,
+        "Timestamp should be updates"
+    );
 }

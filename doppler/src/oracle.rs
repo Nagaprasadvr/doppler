@@ -1,3 +1,5 @@
+use crate::utils::sol_memcpy_;
+
 // Account data offsets
 const ORACLE_SEQUENCE: usize = 0x28c0; // (sequence: u64)
 const ORACLE_PAYLOAD: usize = 0x28c8; // (payload: T)
@@ -10,7 +12,7 @@ pub struct Oracle<T: Sized + Copy> {
 
 impl<T: Sized + Copy> Oracle<T> {
     // Relative offsets for instruction data
-    const INSTRUCTION_SEQUENCE: usize = 0x50d8 + core::mem::size_of::<T>(); // (sequence: u64) 
+    const INSTRUCTION_SEQUENCE: usize = 0x50d8 + core::mem::size_of::<T>(); // (sequence: u64)
     const INSTRUCTION_PAYLOAD: usize = 0x50e0 + core::mem::size_of::<T>(); // (payload: T)
 
     /// # Safety
@@ -33,7 +35,17 @@ impl<T: Sized + Copy> Oracle<T> {
 
         // Update oracle data
         let new_payload = crate::read::<T>(ptr, Self::INSTRUCTION_PAYLOAD);
+
         crate::write(ptr, ORACLE_SEQUENCE, new_sequence);
+
+        // if core::mem::size_of::<T>() <= 24 {
         crate::write(ptr, ORACLE_PAYLOAD, new_payload);
+        // } else {
+        //     sol_memcpy_(
+        //         ptr.add(ORACLE_PAYLOAD),
+        //         &new_payload as *const T as *const u8,
+        //         core::mem::size_of::<T>() as u64,
+        //     );
+        // }
     }
 }

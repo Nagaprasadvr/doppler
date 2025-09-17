@@ -3,7 +3,7 @@
 
 mod admin;
 mod oracle;
-pub mod panic_handler;
+pub mod utils;
 
 /// Helper to read a value at offset and cast it
 ///
@@ -34,6 +34,5 @@ where
 pub mod prelude {
     pub use crate::admin::{Admin, ADMIN};
     pub use crate::oracle::Oracle;
-    #[cfg(not(feature = "std"))]
-    pub use crate::panic_handler::*;
+    pub use crate::utils::*;
 }
